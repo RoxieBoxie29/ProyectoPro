@@ -1,5 +1,4 @@
 import json
-import unicodedata
 
 import pandas as pd
 import plotly.express as px
@@ -29,18 +28,10 @@ button[data-baseweb="tab"] p { font-size: 1.05rem; font-weight: 600; }
 """, unsafe_allow_html=True)
 
 
-def normalizar(texto):
-    """Quita tildes y pasa a mayúsculas: 'ÁNCASH' -> 'ANCASH'.
-    Así los nombres del Excel coinciden con los del archivo GeoJSON."""
-    sin_tildes = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
-    return sin_tildes.upper().strip()
-
-
 @st.cache_data
 def cargar_datos():
     df = pd.read_excel("datos_set/DAG_HuellaEcologica.xlsx", header=6)
     df.columns = df.columns.str.strip()
-    df["Clave"] = df["Ámbito"].apply(normalizar)
     return df
 
 
@@ -53,15 +44,12 @@ def cargar_geojson():
 df = cargar_datos()
 geojson_peru = cargar_geojson()
 
-clave_a_nombre = dict(zip(df["Clave"], df["Ámbito"]))
-
-
 def nombre_del_clic(punto):
     """Devuelve el nombre del departamento sobre el que se hizo clic en el mapa."""
     datos = punto.get("customdata")
     if datos:
         return datos[0] if isinstance(datos, (list, tuple)) else datos
-    return clave_a_nombre.get(punto.get("location"))
+    return punto.get("location")
 
 
 def al_hacer_clic():
@@ -117,8 +105,7 @@ def lectura(texto):
         st.write(texto)
 
 
-# Ordenados sin tener en cuenta las tildes
-departamentos = sorted(df["Ámbito"].unique().tolist(), key=normalizar)
+departamentos = sorted(df["Ámbito"].unique().tolist())
 anios = sorted(df["Año"].unique().tolist())
 
 
@@ -167,13 +154,13 @@ with tab0:
         fig_inicio = px.choropleth(
             df_mapa,
             geojson=geojson_peru,
-            locations="Clave",
+            locations="Ámbito",
             featureidkey="properties.NOMBDEP",
             color=TOTAL,
             color_continuous_scale="Greens",
             range_color=(df[TOTAL].min(), df[TOTAL].max()),  # misma escala en todos los años
             hover_name="Ámbito",
-            hover_data={TOTAL: ":.2f", "Clave": False},
+            hover_data={TOTAL: ":.2f", "Ámbito": False},
             labels={TOTAL: "Huella per cápita"}
         )
         fig_inicio.update_geos(
@@ -350,7 +337,7 @@ with tab3:
         fig_map = px.choropleth(
             df_year,
             geojson=geojson_peru,
-            locations="Clave",                       
+            locations="Ámbito",                       
             featureidkey="properties.NOMBDEP",       
             color="Estado",
             color_discrete_map={
@@ -361,7 +348,7 @@ with tab3:
             category_orders={"Estado": [etiqueta_a, etiqueta_b, otros]},
             hover_name="Ámbito",
             custom_data=["Ámbito"],                  
-            hover_data={"Huella Regional Per Capita": ":.2f", "Estado": False, "Clave": False}
+            hover_data={"Huella Regional Per Capita": ":.2f", "Estado": False, "Ámbito": False}
         )
 
         
