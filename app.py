@@ -449,20 +449,5 @@ with tab3:
 
 with tab4:
     st.subheader("Acerca del proyecto")
-    st.markdown("""
-**Datos:** huella ecológica per cápita departamental y por componentes, 2009-2016 (MINAM, DGCIA).
-
-**Unidad:** según la metodología de MINAM, hectáreas globales por persona. Un valor de 1.24 significa que
-cada habitante del departamento demanda el equivalente a 1.24 hectáreas globales.
-
-**Componentes:** Área de Cultivos, Área de Pastoreo, Área de Bosques, Zonas de Pesca, Huella de Carbono
-y Áreas Urbanas. Su suma es la *Huella Regional Per Capita*.
-
-**Cobertura:** 24 ámbitos departamentales. El archivo no incluye al Callao como ámbito aparte.
-
-**Importante:** son cifras *per cápita*; un departamento con huella alta no necesariamente tiene un
-impacto total mayor, porque eso depende también de cuántos habitantes tiene.
-
-**Integrantes:** Rose Angel Suazo Davila y Maria Fernanda Perez Salvatierra
-""")
+    st.markdown("""""")
 
