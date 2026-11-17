@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-# Configuración de la página (debe ser el primer comando de Streamlit)
+
 st.set_page_config(
     page_title="Huella ecológica en el Perú",
     page_icon="🌱",
@@ -15,8 +15,6 @@ st.set_page_config(
 st.title("Huella ecológica en el Perú")
 st.caption("Huella ecológica per cápita departamental y por componentes · 2009-2016 · Fuente: MINAM (DGCIA)")
 
-# Estilo de la página: contenido centrado con márgenes, pestañas más grandes
-# (si quieres la página más ancha o más angosta, cambia el valor de max-width)
 st.markdown("""
 <style>
 [data-testid="stMainBlockContainer"], .block-container {
@@ -31,9 +29,6 @@ button[data-baseweb="tab"] p { font-size: 1.05rem; font-weight: 600; }
 """, unsafe_allow_html=True)
 
 
-# -----------------------------------------------------------------------------
-# Carga de datos (carpeta datos_set, junto a app.py)
-# -----------------------------------------------------------------------------
 def normalizar(texto):
     """Quita tildes y pasa a mayúsculas: 'ÁNCASH' -> 'ANCASH'.
     Así los nombres del Excel coinciden con los del archivo GeoJSON."""
@@ -43,18 +38,14 @@ def normalizar(texto):
 
 @st.cache_data
 def cargar_datos():
-    # En el Excel, los encabezados están en la fila 7 (por eso header=6)
     df = pd.read_excel("datos_set/DAG_HuellaEcologica.xlsx", header=6)
-    # Limpia espacios al final de los nombres (ej. "Zonas de Pesca ")
     df.columns = df.columns.str.strip()
-    # Nombre sin tildes, para unir cada fila con su polígono en el mapa
     df["Clave"] = df["Ámbito"].apply(normalizar)
     return df
 
 
 @st.cache_data
 def cargar_geojson():
-    # Límites reales de los departamentos del Perú
     with open("datos_set/peru_departamental.geojson", encoding="utf-8") as archivo:
         return json.load(archivo)
 
@@ -62,7 +53,6 @@ def cargar_geojson():
 df = cargar_datos()
 geojson_peru = cargar_geojson()
 
-# Para saber a qué departamento corresponde cada clic en el mapa
 clave_a_nombre = dict(zip(df["Clave"], df["Ámbito"]))
 
 
@@ -104,7 +94,7 @@ sectores = [
 
 TOTAL = "Huella Regional Per Capita"
 
-# Paleta común para los gráficos (verde de la página + colores contrastantes)
+# Paleta común para los gráficos
 PALETA = ["#16866B", "#E08E0B", "#3B6FB6", "#B5483A", "#7A5CA8", "#5B6770"]
 
 
@@ -127,13 +117,11 @@ def lectura(texto):
         st.write(texto)
 
 
-# Ordenados sin tener en cuenta las tildes (así ÁNCASH queda entre A...)
+# Ordenados sin tener en cuenta las tildes
 departamentos = sorted(df["Ámbito"].unique().tolist(), key=normalizar)
 anios = sorted(df["Año"].unique().tolist())
 
-# -----------------------------------------------------------------------------
-# Estructura principal con 5 pestañas (st.tabs)
-# -----------------------------------------------------------------------------
+
 tab0, tab1, tab2, tab3, tab4 = st.tabs([
     "Inicio",
     "Evolución",
@@ -142,9 +130,7 @@ tab0, tab1, tab2, tab3, tab4 = st.tabs([
     "Acerca de"
 ])
 
-# =============================================================================
-# PESTAÑA 0: Inicio (portada con cifras clave, mapa y tendencia)
-# =============================================================================
+
 with tab0:
     st.subheader("¿Qué es la huella ecológica?")
     st.write(
@@ -225,9 +211,7 @@ with tab0:
         f"{mayor_ini[TOTAL] / menor_ini[TOTAL]:.1f} veces la huella de {nombre_menor_ini}."
     )
 
-# =============================================================================
-# PESTAÑA 1: Gráfico de líneas (evolución temporal)
-# =============================================================================
+
 with tab1:
     st.subheader("Evolución temporal por departamento")
     st.caption("Permite evaluar la tendencia de un sector ecológico específico a lo largo de los años.")
@@ -279,9 +263,7 @@ with tab1:
     else:
         st.warning("Por favor, selecciona al menos un departamento para visualizar la tendencia.")
 
-# =============================================================================
-# PESTAÑA 2: Gráfico de barras (ranking nacional)
-# =============================================================================
+
 with tab2:
     st.subheader("Ranking departamental por sector")
     st.caption("Compara la magnitud de un sector ecológico específico entre todos los departamentos para un año dado.")
@@ -320,9 +302,7 @@ with tab2:
         texto_r += "."
     lectura(texto_r)
 
-# =============================================================================
-# PESTAÑA 3: Mapa del Perú con dos departamentos resaltados + barras
-# =============================================================================
+
 with tab3:
     st.subheader("Comparativa de dos departamentos")
     st.caption("Haz clic en un departamento del mapa (o usa las listas): los dos últimos elegidos se resaltan y se comparan.")
@@ -339,21 +319,21 @@ with tab3:
             key="dpto_a"
         )
     with c3:
-        # El segundo no puede ser igual al primero
+        
         opciones_b = [d for d in departamentos if d != dpto_a]
         dpto_b = st.selectbox("Segundo Departamento (Naranja):", opciones_b, index=0, key="dpto_b")
 
     st.markdown("---")
 
-    # Perú es alto y angosto: una columna angosta y alta aprovecha mejor el espacio
+    
     col_map, col_chart = st.columns([2, 3])
 
-    # 1. MAPA DEL PERÚ (departamentos reales, dos resaltados)
+    
     with col_map:
         st.markdown("##### Mapa del Perú")
         df_year = df[df["Año"] == anio_t3].copy()
 
-        # Etiqueta que decide el color de cada departamento
+        
         etiqueta_a = f"1. {dpto_a}"
         etiqueta_b = f"2. {dpto_b}"
         otros = "Otros departamentos"
@@ -370,22 +350,21 @@ with tab3:
         fig_map = px.choropleth(
             df_year,
             geojson=geojson_peru,
-            locations="Clave",                       # nombre sin tildes (columna del Excel)
-            featureidkey="properties.NOMBDEP",       # nombre del departamento en el GeoJSON
+            locations="Clave",                       
+            featureidkey="properties.NOMBDEP",       
             color="Estado",
             color_discrete_map={
                 etiqueta_a: "#1f77b4",
                 etiqueta_b: "#ff7f0e",
-                otros: "rgba(140, 140, 140, 0.35)"   # gris suave que sirve en tema claro y oscuro
+                otros: "rgba(140, 140, 140, 0.35)"   
             },
             category_orders={"Estado": [etiqueta_a, etiqueta_b, otros]},
             hover_name="Ámbito",
-            custom_data=["Ámbito"],                  # para identificar el departamento clicado
+            custom_data=["Ámbito"],                  
             hover_data={"Huella Regional Per Capita": ":.2f", "Estado": False, "Clave": False}
         )
 
-        # Encuadra solo el Perú con límites fijos (longitud y latitud) y oculta el resto
-        # del mundo; el fondo transparente hace que se integre con la página
+        
         fig_map.update_geos(
             visible=False,
             lonaxis_range=[-81.5, -68.5],
@@ -395,18 +374,18 @@ with tab3:
         fig_map.update_traces(
             marker_line_color="rgba(255, 255, 255, 0.35)",
             marker_line_width=0.6,
-            # Al hacer clic, que los demás departamentos no se vean apagados
+            
             selected={"marker": {"opacity": 1}},
             unselected={"marker": {"opacity": 1}}
         )
-        # La leyenda solo muestra los dos departamentos elegidos (sin "Otros")
+        
         fig_map.for_each_trace(lambda t: t.update(showlegend=False) if t.name == otros else None)
         fig_map.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             margin={"r": 0, "t": 0, "l": 0, "b": 0},
             height=680,
-            # Leyenda pequeña, sobre el mapa (esquina inferior izquierda)
+            
             legend={"title_text": "", "x": 0, "y": 0.02, "xanchor": "left", "yanchor": "bottom",
                     "bgcolor": "rgba(0,0,0,0)"}
         )
@@ -415,10 +394,10 @@ with tab3:
             on_select=al_hacer_clic,
             selection_mode="points",
             key="mapa_click",
-            config={"displayModeBar": False}  # sin barra de herramientas
+            config={"displayModeBar": False}  
         )
 
-    # 2. BARRAS AGRUPADAS: componentes de los dos departamentos
+    
     with col_chart:
         st.markdown(f"##### Perfil ecológico completo ({anio_t3})")
         df_t3 = df[(df["Año"] == anio_t3) & (df["Ámbito"].isin([dpto_a, dpto_b]))]
@@ -453,7 +432,7 @@ with tab3:
         )
         st.plotly_chart(fig_bar)
 
-    # Interpretación automática: quién tiene más huella y en qué componente se separan más
+    
     fila_a = df[(df["Año"] == anio_t3) & (df["Ámbito"] == dpto_a)].iloc[0]
     fila_b = df[(df["Año"] == anio_t3) & (df["Ámbito"] == dpto_b)].iloc[0]
     brechas = {s: abs(fila_a[s] - fila_b[s]) for s in sectores_comp}
@@ -467,9 +446,7 @@ with tab3:
         f"La mayor diferencia entre ambos está en {mayor_brecha}."
     )
 
-# =============================================================================
-# PESTAÑA 4: Acerca del proyecto (datos, unidad y descarga)
-# =============================================================================
+
 with tab4:
     st.subheader("Acerca del proyecto")
     st.markdown("""
