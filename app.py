@@ -1,128 +1,491 @@
+import json
+import unicodedata
+
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.express as px
 import streamlit as st
 
-# set_page_config va una sola vez y antes de cualquier otro comando de Streamlit
+# Configuración de la página (debe ser el primer comando de Streamlit)
 st.set_page_config(
-    page_title="Huella ecológica por departamento",
-    page_icon="🌎",
-    layout="wide",
+    page_title="Huella ecológica en el Perú",
+    page_icon="🌱",
+    layout="wide"
 )
+
+st.title("Huella ecológica en el Perú")
+st.caption("Huella ecológica per cápita departamental y por componentes · 2009-2016 · Fuente: MINAM (DGCIA)")
+
+# Estilo de la página: contenido centrado con márgenes, pestañas más grandes
+# (si quieres la página más ancha o más angosta, cambia el valor de max-width)
+st.markdown("""
+<style>
+[data-testid="stMainBlockContainer"], .block-container {
+    max-width: 1180px !important;
+    padding: 2.2rem 2.5rem 3rem 2.5rem !important;
+    margin: 0 auto !important;
+}
+button[data-baseweb="tab"] { padding-left: 1rem; padding-right: 1rem; }
+button[data-baseweb="tab"] p { font-size: 1.05rem; font-weight: 600; }
+[data-testid="stHeaderActionElements"] { display: none; }
+</style>
+""", unsafe_allow_html=True)
+
+
+# -----------------------------------------------------------------------------
+# Carga de datos (carpeta datos_set, junto a app.py)
+# -----------------------------------------------------------------------------
+def normalizar(texto):
+    """Quita tildes y pasa a mayúsculas: 'ÁNCASH' -> 'ANCASH'.
+    Así los nombres del Excel coinciden con los del archivo GeoJSON."""
+    sin_tildes = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
+    return sin_tildes.upper().strip()
 
 
 @st.cache_data
 def cargar_datos():
+    # En el Excel, los encabezados están en la fila 7 (por eso header=6)
     df = pd.read_excel("datos_set/DAG_HuellaEcologica.xlsx", header=6)
-    df.columns = df.columns.astype(str).str.strip()
-
-    df["Año"] = pd.to_numeric(df["Año"], errors="coerce")
-    df["Ámbito"] = df["Ámbito"].astype(str).str.strip()
-    df = df.dropna(subset=["Ámbito", "Año"])
-    df["Año"] = df["Año"].astype(int)
+    # Limpia espacios al final de los nombres (ej. "Zonas de Pesca ")
+    df.columns = df.columns.str.strip()
+    # Nombre sin tildes, para unir cada fila con su polígono en el mapa
+    df["Clave"] = df["Ámbito"].apply(normalizar)
     return df
 
 
+@st.cache_data
+def cargar_geojson():
+    # Límites reales de los departamentos del Perú
+    with open("datos_set/peru_departamental.geojson", encoding="utf-8") as archivo:
+        return json.load(archivo)
+
+
 df = cargar_datos()
+geojson_peru = cargar_geojson()
 
-st.title("Huella ecológica por departamento (2009 - 2016)")
+# Para saber a qué departamento corresponde cada clic en el mapa
+clave_a_nombre = dict(zip(df["Clave"], df["Ámbito"]))
 
-tab_pesca, tab_bosques = st.tabs(["🐟 Zonas de Pesca", "🌳 Área de Bosques"])
 
-# ---------------------------------------------------------------
-# PESTAÑA 1: Zonas de Pesca (gráfico de líneas)
-# ---------------------------------------------------------------
-with tab_pesca:
-    st.subheader("Zonas de Pesca por departamento")
+def nombre_del_clic(punto):
+    """Devuelve el nombre del departamento sobre el que se hizo clic en el mapa."""
+    datos = punto.get("customdata")
+    if datos:
+        return datos[0] if isinstance(datos, (list, tuple)) else datos
+    return clave_a_nombre.get(punto.get("location"))
 
-    pesca = df.pivot(index="Año", columns="Ámbito", values="Zonas de Pesca")
-    pesca.index = pesca.index.astype(str)
 
-    departamentos = list(pesca.columns)
-    seleccion = st.multiselect("Departamentos", departamentos, default=departamentos)
+def al_hacer_clic():
+    """Se ejecuta al hacer clic en el mapa: el departamento clicado pasa a ser el
+    segundo (naranja) y el que era segundo pasa a ser el primero (azul)."""
+    evento = st.session_state.get("mapa_click")
+    if not evento:
+        return
+    puntos = evento["selection"]["points"]
+    if not puntos:
+        return
+    nombre = nombre_del_clic(puntos[-1])
+    a = st.session_state.get("dpto_a")
+    b = st.session_state.get("dpto_b")
+    if nombre is None or a is None or b is None or nombre in (a, b):
+        return
+    st.session_state["dpto_a"] = b
+    st.session_state["dpto_b"] = nombre
 
-    if len(seleccion) == 0:
-        st.write("Elige al menos un departamento.")
-    else:
-        st.line_chart(pesca[seleccion])
+# Lista de sectores ecológicos
+sectores = [
+    "Huella Regional Per Capita",
+    "Área de Cultivos",
+    "Área de Pastoreo",
+    "Área de Bosques",
+    "Zonas de Pesca",
+    "Huella de Carbono",
+    "Áreas Urbanas"
+]
 
-        st.subheader("Valores por año")
-        st.dataframe(pesca[seleccion])
+TOTAL = "Huella Regional Per Capita"
 
-# ---------------------------------------------------------------
-# PESTAÑA 2: Área de Bosques (ranking por año)
-# ---------------------------------------------------------------
-with tab_bosques:
-    st.subheader("Área de Bosques por departamento")
+# Paleta común para los gráficos (verde de la página + colores contrastantes)
+PALETA = ["#16866B", "#E08E0B", "#3B6FB6", "#B5483A", "#7A5CA8", "#5B6770"]
+
+
+def tarjeta(columna, etiqueta, valor, detalle):
+    """Tarjeta de cifra clave: etiqueta, valor grande y una línea de detalle.
+    Las cuatro tarjetas tienen la misma estructura, así quedan del mismo alto."""
+    with columna.container(border=True):
+        st.caption(etiqueta)
+        st.markdown(
+            f"<div style='font-size:2.2rem; font-weight:700; line-height:1.15'>{valor}</div>",
+            unsafe_allow_html=True
+        )
+        st.caption(detalle)
+
+
+def lectura(texto):
+    """Cuadro neutro con la interpretación escrita bajo un gráfico."""
+    with st.container(border=True):
+        st.markdown("**Lectura del gráfico**")
+        st.write(texto)
+
+
+# Ordenados sin tener en cuenta las tildes (así ÁNCASH queda entre A...)
+departamentos = sorted(df["Ámbito"].unique().tolist(), key=normalizar)
+anios = sorted(df["Año"].unique().tolist())
+
+# -----------------------------------------------------------------------------
+# Estructura principal con 5 pestañas (st.tabs)
+# -----------------------------------------------------------------------------
+tab0, tab1, tab2, tab3, tab4 = st.tabs([
+    "Inicio",
+    "Evolución",
+    "Ranking",
+    "Comparar departamentos",
+    "Acerca de"
+])
+
+# =============================================================================
+# PESTAÑA 0: Inicio (portada con cifras clave, mapa y tendencia)
+# =============================================================================
+with tab0:
+    st.subheader("¿Qué es la huella ecológica?")
     st.write(
-        "Selecciona un año para comparar el indicador Área de Bosques "
-        "entre los departamentos del Perú."
+        "La huella ecológica per cápita estima cuánta superficie productiva necesita, "
+        "en promedio, una persona de cada departamento para sostener su consumo. "
+        "Se mide en hectáreas globales por persona (según la metodología de MINAM) y es "
+        "la suma de seis componentes: cultivos, pastoreo, bosques, pesca, carbono y "
+        "áreas urbanas. Un valor más alto significa que cada habitante demanda más "
+        "recursos. Aquí se compara la huella de los 24 departamentos del Perú entre "
+        "2009 y 2016."
     )
 
-    anios = sorted(df["Año"].unique())
-    anio = st.selectbox("Selecciona el año:", anios, index=0)
+    primero, ultimo = min(anios), max(anios)
+    promedio = df.groupby("Año")[TOTAL].mean()
+    ranking_ini = df[df["Año"] == ultimo].sort_values(TOTAL)
+    menor_ini, mayor_ini = ranking_ini.iloc[0], ranking_ini.iloc[-1]
+    nombre_mayor_ini, nombre_menor_ini = mayor_ini["Ámbito"], menor_ini["Ámbito"]
+    variacion = (promedio[ultimo] / promedio[primero] - 1) * 100
 
-    datos = df[df["Año"] == anio].copy()
-    datos["Área de Bosques"] = pd.to_numeric(datos["Área de Bosques"], errors="coerce")
-    datos = datos.dropna(subset=["Área de Bosques"])
-    datos = datos.sort_values(by="Área de Bosques", ascending=False)
+    # Cuatro cifras clave en tarjetas del mismo tamaño
+    m1, m2, m3, m4 = st.columns(4)
+    tarjeta(m1, f"Promedio {primero}", f"{promedio[primero]:.2f}", "Año base")
+    tarjeta(m2, f"Promedio {ultimo}", f"{promedio[ultimo]:.2f}", f":red[{variacion:+.1f}% frente a {primero}]")
+    tarjeta(m3, f"Mayor huella en {ultimo}", f"{mayor_ini[TOTAL]:.2f}", nombre_mayor_ini)
+    tarjeta(m4, f"Menor huella en {ultimo}", f"{menor_ini[TOTAL]:.2f}", nombre_menor_ini)
 
-    st.markdown(f"### Resultados del año {anio}")
+    # Mapa de la huella total (izquierda) y tendencia del promedio (derecha)
+    col_mapa, col_linea = st.columns([3, 2])
 
-    mayor = datos.iloc[0]
-    menor = datos.iloc[-1]
-    promedio = datos["Área de Bosques"].mean()
+    with col_mapa:
+        st.markdown("##### Huella total por departamento")
+        anio_mapa = st.select_slider("Año:", options=anios, value=ultimo, key="anio_inicio")
+        df_mapa = df[df["Año"] == anio_mapa]
+        fig_inicio = px.choropleth(
+            df_mapa,
+            geojson=geojson_peru,
+            locations="Clave",
+            featureidkey="properties.NOMBDEP",
+            color=TOTAL,
+            color_continuous_scale="Greens",
+            range_color=(df[TOTAL].min(), df[TOTAL].max()),  # misma escala en todos los años
+            hover_name="Ámbito",
+            hover_data={TOTAL: ":.2f", "Clave": False},
+            labels={TOTAL: "Huella per cápita"}
+        )
+        fig_inicio.update_geos(
+            visible=False,
+            lonaxis_range=[-81.5, -68.5],
+            lataxis_range=[-18.6, 0.2],
+            bgcolor="rgba(0,0,0,0)"
+        )
+        fig_inicio.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            margin={"r": 0, "t": 0, "l": 0, "b": 0},
+            height=520,
+            coloraxis_colorbar={"title": "", "thickness": 12}
+        )
+        st.plotly_chart(fig_inicio)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Mayor valor", mayor["Ámbito"])
-    col2.metric("Menor valor", menor["Ámbito"])
-    col3.metric("Promedio de los departamentos", f"{promedio:.4f}")
+    with col_linea:
+        st.markdown("##### Promedio de los departamentos por año")
+        fig_prom = px.line(
+            promedio.reset_index(),
+            x="Año",
+            y=TOTAL,
+            markers=True,
+            color_discrete_sequence=[PALETA[0]],
+            labels={TOTAL: "Huella per cápita"}
+        )
+        fig_prom.update_xaxes(dtick=1)
+        fig_prom.update_yaxes(rangemode="tozero")
+        fig_prom.update_layout(template="plotly_white", height=520, margin={"r": 10, "t": 10, "l": 0, "b": 0})
+        st.plotly_chart(fig_prom)
 
-    fig = go.Figure()
+    lectura(
+        f"El promedio de los departamentos pasó de {promedio[primero]:.2f} a {promedio[ultimo]:.2f} "
+        f"entre {primero} y {ultimo} ({variacion:+.1f}%). En {ultimo}, {nombre_mayor_ini} tiene "
+        f"{mayor_ini[TOTAL] / menor_ini[TOTAL]:.1f} veces la huella de {nombre_menor_ini}."
+    )
 
-    for _, fila in datos.iterrows():
-        fig.add_trace(
-            go.Scatter(
-                x=[0, fila["Área de Bosques"]],
-                y=[fila["Ámbito"], fila["Ámbito"]],
-                mode="lines",
-                line=dict(color="#B7DCCB", width=3),
-                hoverinfo="skip",
-                showlegend=False,
+# =============================================================================
+# PESTAÑA 1: Gráfico de líneas (evolución temporal)
+# =============================================================================
+with tab1:
+    st.subheader("Evolución temporal por departamento")
+    st.caption("Permite evaluar la tendencia de un sector ecológico específico a lo largo de los años.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        sector_t1 = st.selectbox("Selecciona el Sector:", sectores, key="sec_t1")
+    with col2:
+        dptos_t1 = st.multiselect(
+            "Selecciona Departamento(s):",
+            departamentos,
+            default=[d for d in ("LIMA", "AREQUIPA", "CUSCO") if d in departamentos],
+            key="dpto_t1"
+        )
+
+    if dptos_t1:
+        df_filtered_t1 = df[df["Ámbito"].isin(dptos_t1)].sort_values("Año")
+        fig1 = px.line(
+            df_filtered_t1,
+            x="Año",
+            y=sector_t1,
+            color="Ámbito",
+            markers=True,
+            color_discrete_sequence=PALETA,
+            title=f"Evolución de {sector_t1} ({min(anios)} - {max(anios)})",
+            labels={sector_t1: "Huella per cápita", "Ámbito": "Departamento"}
+        )
+        fig1.update_xaxes(dtick=1)  # un número por cada año
+        fig1.update_layout(template="plotly_white")
+        st.plotly_chart(fig1)
+
+        # Interpretación automática: cambio porcentual entre el primer y el último año
+        cambios = {}
+        for d in dptos_t1:
+            serie = df_filtered_t1[df_filtered_t1["Ámbito"] == d].set_index("Año")[sector_t1]
+            if serie.loc[min(anios)] > 0:
+                cambios[d] = (serie.loc[max(anios)] / serie.loc[min(anios)] - 1) * 100
+        if len(cambios) == 1:
+            d, c = next(iter(cambios.items()))
+            verbo = "aumentó" if c > 0 else "disminuyó"
+            lectura(f"En {d}, {sector_t1} {verbo} {abs(c):.1f}% entre {min(anios)} y {max(anios)}.")
+        elif len(cambios) > 1:
+            sube = max(cambios, key=cambios.get)
+            baja = min(cambios, key=cambios.get)
+            lectura(
+                f"Entre {min(anios)} y {max(anios)}, el mayor cambio en {sector_t1} fue en "
+                f"{sube} ({cambios[sube]:+.1f}%) y el menor en {baja} ({cambios[baja]:+.1f}%)."
             )
+    else:
+        st.warning("Por favor, selecciona al menos un departamento para visualizar la tendencia.")
+
+# =============================================================================
+# PESTAÑA 2: Gráfico de barras (ranking nacional)
+# =============================================================================
+with tab2:
+    st.subheader("Ranking departamental por sector")
+    st.caption("Compara la magnitud de un sector ecológico específico entre todos los departamentos para un año dado.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        anio_t2 = st.select_slider("Selecciona el Año:", options=anios, value=max(anios), key="anio_t2")
+    with col2:
+        sector_t2 = st.selectbox("Selecciona el Sector:", sectores, key="sec_t2")
+
+    df_filtered_t2 = df[df["Año"] == anio_t2].sort_values(by=sector_t2, ascending=False)
+
+    fig2 = px.bar(
+        df_filtered_t2,
+        x="Ámbito",
+        y=sector_t2,
+        color=sector_t2,
+        color_continuous_scale="Greens",
+        title=f"Comparativa de {sector_t2} en el año {anio_t2}",
+        labels={"Ámbito": "Departamento", sector_t2: "Huella per cápita"}
+    )
+    fig2.update_layout(template="plotly_white", xaxis_tickangle=-45)
+    st.plotly_chart(fig2)
+
+    # Interpretación automática: el departamento más alto frente al más bajo
+    mayor_r = df_filtered_t2.iloc[0]
+    menor_r = df_filtered_t2.iloc[-1]
+    nombre_mayor, nombre_menor = mayor_r["Ámbito"], menor_r["Ámbito"]
+    texto_r = (
+        f"En {anio_t2}, {nombre_mayor} tiene el mayor valor de {sector_t2} ({mayor_r[sector_t2]:.2f}) "
+        f"y {nombre_menor} el menor ({menor_r[sector_t2]:.2f})"
+    )
+    if menor_r[sector_t2] > 0:
+        texto_r += f": el primero es {mayor_r[sector_t2] / menor_r[sector_t2]:.1f} veces el segundo."
+    else:
+        texto_r += "."
+    lectura(texto_r)
+
+# =============================================================================
+# PESTAÑA 3: Mapa del Perú con dos departamentos resaltados + barras
+# =============================================================================
+with tab3:
+    st.subheader("Comparativa de dos departamentos")
+    st.caption("Haz clic en un departamento del mapa (o usa las listas): los dos últimos elegidos se resaltan y se comparan.")
+
+    # Controles de selección
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        anio_t3 = st.selectbox("Selecciona el Año:", anios, index=len(anios) - 1, key="anio_t3")
+    with c2:
+        dpto_a = st.selectbox(
+            "Primer Departamento (Azul):",
+            departamentos,
+            index=departamentos.index("LIMA"),
+            key="dpto_a"
+        )
+    with c3:
+        # El segundo no puede ser igual al primero
+        opciones_b = [d for d in departamentos if d != dpto_a]
+        dpto_b = st.selectbox("Segundo Departamento (Naranja):", opciones_b, index=0, key="dpto_b")
+
+    st.markdown("---")
+
+    # Perú es alto y angosto: una columna angosta y alta aprovecha mejor el espacio
+    col_map, col_chart = st.columns([2, 3])
+
+    # 1. MAPA DEL PERÚ (departamentos reales, dos resaltados)
+    with col_map:
+        st.markdown("##### Mapa del Perú")
+        df_year = df[df["Año"] == anio_t3].copy()
+
+        # Etiqueta que decide el color de cada departamento
+        etiqueta_a = f"1. {dpto_a}"
+        etiqueta_b = f"2. {dpto_b}"
+        otros = "Otros departamentos"
+
+        def asignar_estado(dpto):
+            if dpto == dpto_a:
+                return etiqueta_a
+            if dpto == dpto_b:
+                return etiqueta_b
+            return otros
+
+        df_year["Estado"] = df_year["Ámbito"].apply(asignar_estado)
+
+        fig_map = px.choropleth(
+            df_year,
+            geojson=geojson_peru,
+            locations="Clave",                       # nombre sin tildes (columna del Excel)
+            featureidkey="properties.NOMBDEP",       # nombre del departamento en el GeoJSON
+            color="Estado",
+            color_discrete_map={
+                etiqueta_a: "#1f77b4",
+                etiqueta_b: "#ff7f0e",
+                otros: "rgba(140, 140, 140, 0.35)"   # gris suave que sirve en tema claro y oscuro
+            },
+            category_orders={"Estado": [etiqueta_a, etiqueta_b, otros]},
+            hover_name="Ámbito",
+            custom_data=["Ámbito"],                  # para identificar el departamento clicado
+            hover_data={"Huella Regional Per Capita": ":.2f", "Estado": False, "Clave": False}
         )
 
-    fig.add_trace(
-        go.Scatter(
-            x=datos["Área de Bosques"],
-            y=datos["Ámbito"],
-            mode="markers+text",
-            text=datos["Área de Bosques"].map(lambda valor: f"{valor:.3f}"),
-            textposition="middle right",
-            marker=dict(size=11, color="#16866B"),
-            hovertemplate="<b>%{y}</b><br>Área de Bosques: %{x:.6f}<extra></extra>",
-            showlegend=False,
+        # Encuadra solo el Perú con límites fijos (longitud y latitud) y oculta el resto
+        # del mundo; el fondo transparente hace que se integre con la página
+        fig_map.update_geos(
+            visible=False,
+            lonaxis_range=[-81.5, -68.5],
+            lataxis_range=[-18.6, 0.2],
+            bgcolor="rgba(0,0,0,0)"
         )
+        fig_map.update_traces(
+            marker_line_color="rgba(255, 255, 255, 0.35)",
+            marker_line_width=0.6,
+            # Al hacer clic, que los demás departamentos no se vean apagados
+            selected={"marker": {"opacity": 1}},
+            unselected={"marker": {"opacity": 1}}
+        )
+        # La leyenda solo muestra los dos departamentos elegidos (sin "Otros")
+        fig_map.for_each_trace(lambda t: t.update(showlegend=False) if t.name == otros else None)
+        fig_map.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            margin={"r": 0, "t": 0, "l": 0, "b": 0},
+            height=680,
+            # Leyenda pequeña, sobre el mapa (esquina inferior izquierda)
+            legend={"title_text": "", "x": 0, "y": 0.02, "xanchor": "left", "yanchor": "bottom",
+                    "bgcolor": "rgba(0,0,0,0)"}
+        )
+        st.plotly_chart(
+            fig_map,
+            on_select=al_hacer_clic,
+            selection_mode="points",
+            key="mapa_click",
+            config={"displayModeBar": False}  # sin barra de herramientas
+        )
+
+    # 2. BARRAS AGRUPADAS: componentes de los dos departamentos
+    with col_chart:
+        st.markdown(f"##### Perfil ecológico completo ({anio_t3})")
+        df_t3 = df[(df["Año"] == anio_t3) & (df["Ámbito"].isin([dpto_a, dpto_b]))]
+
+        sectores_comp = [s for s in sectores if s != "Huella Regional Per Capita"]
+        df_melted = pd.melt(
+            df_t3,
+            id_vars=["Ámbito", "Año"],
+            value_vars=sectores_comp,
+            var_name="Sector",
+            value_name="Huella"
+        )
+
+        fig_bar = px.bar(
+            df_melted,
+            x="Sector",
+            y="Huella",
+            color="Ámbito",
+            barmode="group",
+            color_discrete_map={
+                dpto_a: "#1f77b4",
+                dpto_b: "#ff7f0e"
+            },
+            title=f"Componentes: {dpto_a} vs {dpto_b}",
+            labels={"Huella": "Huella per cápita", "Sector": "Componente"}
+        )
+        fig_bar.update_layout(
+            template="plotly_white",
+            xaxis_tickangle=-35,
+            height=680,
+            margin={"r": 0, "t": 30, "l": 0, "b": 0}
+        )
+        st.plotly_chart(fig_bar)
+
+    # Interpretación automática: quién tiene más huella y en qué componente se separan más
+    fila_a = df[(df["Año"] == anio_t3) & (df["Ámbito"] == dpto_a)].iloc[0]
+    fila_b = df[(df["Año"] == anio_t3) & (df["Ámbito"] == dpto_b)].iloc[0]
+    brechas = {s: abs(fila_a[s] - fila_b[s]) for s in sectores_comp}
+    mayor_brecha = max(brechas, key=brechas.get)
+    if fila_a[TOTAL] >= fila_b[TOTAL]:
+        alto, bajo, v_alto, v_bajo = dpto_a, dpto_b, fila_a[TOTAL], fila_b[TOTAL]
+    else:
+        alto, bajo, v_alto, v_bajo = dpto_b, dpto_a, fila_b[TOTAL], fila_a[TOTAL]
+    lectura(
+        f"En {anio_t3}, {alto} tiene la mayor huella total ({v_alto:.2f} frente a {v_bajo:.2f} de {bajo}). "
+        f"La mayor diferencia entre ambos está en {mayor_brecha}."
     )
 
-    fig.update_layout(
-        title=f"Área de Bosques por departamento - {anio}",
-        height=750,
-        template="plotly_white",
-        xaxis_title="Valor del indicador Área de Bosques",
-        yaxis_title="Departamento",
-        yaxis=dict(
-            categoryorder="array",
-            categoryarray=datos["Ámbito"].tolist(),
-            autorange="reversed",
-        ),
-        margin=dict(l=20, r=70, t=70, b=40),
-    )
+# =============================================================================
+# PESTAÑA 4: Acerca del proyecto (datos, unidad y descarga)
+# =============================================================================
+with tab4:
+    st.subheader("Acerca del proyecto")
+    st.markdown("""
+**Datos:** huella ecológica per cápita departamental y por componentes, 2009-2016 (MINAM, DGCIA).
 
-    st.plotly_chart(fig, width="stretch")
+**Unidad:** según la metodología de MINAM, hectáreas globales por persona. Un valor de 1.24 significa que
+cada habitante del departamento demanda el equivalente a 1.24 hectáreas globales.
 
-    st.markdown("### Datos del gráfico")
+**Componentes:** Área de Cultivos, Área de Pastoreo, Área de Bosques, Zonas de Pesca, Huella de Carbono
+y Áreas Urbanas. Su suma es la *Huella Regional Per Capita*.
 
-    tabla = datos[["Ámbito", "Área de Bosques"]].copy()
-    tabla["Área de Bosques"] = tabla["Área de Bosques"].round(4)
+**Cobertura:** 24 ámbitos departamentales. El archivo no incluye al Callao como ámbito aparte.
 
-    st.dataframe(tabla, width="stretch", hide_index=True)
+**Importante:** son cifras *per cápita*; un departamento con huella alta no necesariamente tiene un
+impacto total mayor, porque eso depende también de cuántos habitantes tiene.
+
+**Integrantes:** Rose Angel Suazo Davila y Maria Fernanda Perez Salvatierra
+""")
+
