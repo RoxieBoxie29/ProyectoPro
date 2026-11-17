@@ -436,5 +436,38 @@ with tab3:
 
 with tab4:
     st.subheader("Acerca del proyecto")
-    st.markdown("""""")
+    st.markdown("""
+    ### 🌎 Sobre el proyecto
+
+    El proyecto **Huella Ecológica del Perú (2009–2016)** consiste en el desarrollo de una plataforma web interactiva que permite explorar y analizar información relacionada con la huella ecológica per cápita de los departamentos del Perú. Mediante la representación gráfica de datos ambientales, se busca facilitar la comprensión de la demanda de recursos naturales y reconocer las diferencias existentes entre los territorios durante el periodo estudiado.
+
+    ### 🌱 ¿Por qué es importante estudiarla?
+
+    La huella ecológica permite comprender la presión que generan las actividades humanas sobre los recursos naturales y los ecosistemas. Su análisis resulta importante para reconocer cómo se relaciona el consumo de recursos con la capacidad de la naturaleza para regenerarlos. En el caso peruano, conocer estas variaciones permite acercarnos a la realidad ambiental de sus diferentes departamentos.
+
+    ### 🎯 Objetivo del proyecto
+
+    Desarrollar una herramienta digital que facilite la visualización, comparación e interpretación de la huella ecológica per cápita en los departamentos del Perú entre 2009 y 2016, utilizando gráficos interactivos y representaciones geográficas.
+
+    ### 📊 Información analizada
+
+    El estudio considera seis componentes de la huella ecológica: área de cultivos, área de pastoreo, área de bosques, zonas de pesca, huella de carbono y áreas urbanas. Estos componentes permiten observar diferentes aspectos de la demanda de recursos naturales y conforman la huella regional per cápita.
+
+    ### 📁 Fuente de información
+
+    La información utilizada procede de la documentación del Ministerio del Ambiente (MINAM), a través de la Dirección General de Información e Investigación Ambiental (DGCIA). La base de datos comprende el periodo 2009–2016 y considera 24 ámbitos departamentales. Los valores se expresan en hectáreas globales por persona.
+
+    ### 💻 Desarrollo de la plataforma
+
+    Para el desarrollo se utilizaron herramientas de programación y visualización de datos como Python, Pandas, Plotly y Streamlit. Estas permitieron organizar la información, elaborar gráficos interactivos, representar los datos en un mapa del Perú y facilitar la comparación entre departamentos y años.
+
+    ### 🌿 Aporte del proyecto
+
+    Esta plataforma busca acercar la información ambiental a los usuarios de una manera visual y comprensible. Asimismo, permite reconocer diferencias y variaciones en los indicadores analizados, promoviendo el interés por el estudio de la huella ecológica y la importancia del uso responsable de los recursos naturales.
+
+    ---
+
+    **Integrantes:** Rose Angel Suazo Davila y Maria Fernanda Perez Salvatierra.
+
+    **Fuente:** Ministerio del Ambiente (MINAM) – DGCIA.""")
 
