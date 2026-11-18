@@ -1,3 +1,4 @@
+
 # 🌎 Huella Ecológica del Perú
 
 ### Plataforma web interactiva para el análisis de la huella ecológica (2009–2016)
@@ -8,66 +9,76 @@
 
 ## 1. Sobre el proyecto
 
-Este proyecto consiste en el desarrollo de una plataforma web interactiva orientada al análisis de la huella ecológica del Perú, utilizando como base información estadística y documentación del Ministerio del Ambiente (MINAM), correspondiente al periodo 2009–2016.
+Este proyecto consiste en el desarrollo de una plataforma web interactiva orientada al análisis de la huella ecológica per cápita de los departamentos del Perú, utilizando información estadística del Ministerio del Ambiente (MINAM), correspondiente al periodo 2009–2016.
 
 La propuesta busca transformar los datos recopilados en información visual y comprensible, facilitando la exploración de los indicadores ambientales y la comparación de sus valores a través del tiempo y entre los diferentes departamentos del país.
 
-La plataforma permitirá acercar la información ambiental a los usuarios mediante una interfaz organizada, gráficos dinámicos y herramientas de consulta que faciliten la interpretación de los datos.
+La plataforma permite consultar información ambiental mediante una interfaz organizada, gráficos interactivos y herramientas de visualización que facilitan la interpretación de los datos.
 
 ## 2. Enfoque del análisis
 
-El análisis estará centrado en comprender el comportamiento de la huella ecológica a partir de sus diferentes componentes y su distribución territorial.
+El análisis se centra en comprender el comportamiento de la huella ecológica per cápita a partir de sus diferentes componentes y su distribución territorial.
 
-Se considerarán las variaciones registradas durante el periodo de estudio, las diferencias entre departamentos y la participación de los componentes que conforman la huella ecológica.
+Se consideran las variaciones registradas durante el periodo de estudio, las diferencias entre departamentos y el comportamiento de los componentes que conforman la huella ecológica.
 
-De esta manera, no se busca únicamente mostrar cifras, sino facilitar la identificación de patrones, diferencias y cambios que permitan comprender mejor la relación entre el consumo de recursos naturales y la presión ejercida sobre el ambiente.
+De esta manera, se busca facilitar la identificación de patrones, diferencias y cambios que permitan comprender mejor la relación entre el consumo de recursos naturales y la presión ejercida sobre el ambiente.
 
-## 3. ¿Qué permitirá explorar la plataforma?
+## 3. ¿Qué permite explorar la plataforma?
 
-La página web integrará herramientas de visualización que permitirán consultar y comparar la información ambiental desde diferentes perspectivas:
+La plataforma incorpora herramientas de visualización que permiten explorar la información ambiental desde diferentes perspectivas:
 
-- **Huella ecológica por departamento:** comparación de los valores registrados y su evolución durante el periodo de estudio.
-- **Componentes de la huella ecológica:** exploración de la contribución de las tierras de cultivo, pastoreo, productos forestales, zonas de pesca, carbono y áreas urbanizadas.
-- **Huella de carbono:** análisis comparativo de su comportamiento entre departamentos y años.
+- **Evolución de la huella ecológica:** consulta del comportamiento de los indicadores durante el periodo 2009–2016.
+- **Ranking departamental:** comparación de los valores registrados entre los departamentos para un año seleccionado.
+- **Comparación entre departamentos:** exploración de las diferencias en los valores totales y sus componentes.
+- **Representación geográfica:** visualización de la información mediante un mapa interactivo del Perú.
 
-Estas visualizaciones se complementarán con filtros de consulta y una presentación organizada de los datos para facilitar su interpretación.
+Estas herramientas incluyen filtros de consulta y gráficos interactivos que facilitan la exploración y comprensión de los resultados.
 
 ## 4. Datos utilizados
 
-Para el desarrollo del proyecto se utiliza información estadística y documentación del **Ministerio del Ambiente (MINAM) del Perú**, correspondiente al periodo 2009–2016.
+Para el desarrollo del proyecto se utiliza información estadística del **Ministerio del Ambiente (MINAM) del Perú**, correspondiente al periodo 2009–2016.
 
 Esta información constituye la base para el procesamiento, organización y análisis de los indicadores relacionados con la huella ecológica del país.
 
-Los datos se encuentran en archivos Excel y serán estructurados para facilitar las comparaciones entre años, departamentos y componentes de la huella ecológica, considerando la disponibilidad y consistencia de la información recopilada.
+Los datos se encuentran organizados en archivos Excel y comprenden 24 ámbitos departamentales. Se consideran seis componentes: área de cultivos, área de pastoreo, área de bosques, zonas de pesca, huella de carbono y áreas urbanas.
 
-El uso de documentación oficial permite trabajar con información de referencia nacional y facilita el análisis de los indicadores ambientales del Perú.
+Los valores se expresan en hectáreas globales por persona, de acuerdo con la información de referencia utilizada.
 
 ## 5. Desarrollo de la plataforma
 
-La aplicación será desarrollada utilizando Python y Streamlit, incorporando herramientas para el procesamiento de datos y la generación de visualizaciones interactivas.
+La aplicación fue desarrollada utilizando Python y Streamlit, incorporando herramientas para el procesamiento de datos y la generación de visualizaciones interactivas.
 
-La página estará organizada para ofrecer una navegación sencilla y permitir que el usuario pueda:
+La plataforma cuenta con secciones organizadas que permiten al usuario:
 
-- Conocer el concepto de huella ecológica y su importancia ambiental.
-- Consultar información correspondiente al periodo 2009–2016.
-- Explorar y comparar indicadores mediante gráficos.
-- Examinar diferencias entre departamentos.
-- Interpretar los principales resultados del análisis.
+- Conocer información general sobre la huella ecológica.
+- Consultar los indicadores correspondientes al periodo 2009–2016.
+- Explorar la evolución de los datos mediante gráficos.
+- Comparar los resultados entre departamentos.
+- Visualizar la distribución geográfica de la información ambiental.
 
 ## 6. Tecnologías utilizadas
 
-- **Python:** lenguaje de programación para el desarrollo de la aplicación.
-- **Streamlit:** creación de la plataforma web interactiva.
-- **Pandas:** procesamiento y organización de datos.
-- **Matplotlib:** elaboración de gráficos y visualizaciones.
-- **Git y GitHub:** control de versiones y almacenamiento del proyecto.
+Para el desarrollo de la plataforma se utilizaron las siguientes herramientas:
+
+- **Python:** lenguaje de programación utilizado para desarrollar la aplicación.
+- **Streamlit:** creación de la página web interactiva y organización de sus secciones.
+- **Pandas:** lectura, procesamiento y organización de los datos ambientales.
+- **NumPy:** apoyo en operaciones y manejo de datos numéricos.
+- **Plotly Express:** elaboración de gráficos interactivos para representar y comparar la información.
+- **Openpyxl:** lectura y manejo de archivos Excel.
+- **Git y GitHub:** control de versiones y almacenamiento del código del proyecto.
 
 ## 7. Propósito del proyecto
 
-Con esta propuesta se busca desarrollar una herramienta digital que facilite el acceso y la interpretación de información sobre la huella ecológica del Perú.
+El proyecto busca desarrollar una herramienta digital que facilite el acceso y la interpretación de información sobre la huella ecológica del Perú.
 
-A través del análisis de datos y las visualizaciones interactivas, se pretende contribuir a una mejor comprensión de los indicadores ambientales y de las diferencias registradas a nivel nacional, promoviendo el interés por el análisis de información y la comprensión de los desafíos ambientales del país.
+A través del análisis de datos y las visualizaciones interactivas, se pretende contribuir a una mejor comprensión de los indicadores ambientales y de las diferencias registradas entre los departamentos, promoviendo el interés por el análisis de información y la importancia del uso responsable de los recursos naturales.
 
 ---
 
+**Integrantes:** Rose Angel Suazo Davila y Maria Fernanda Perez Salvatierra.
+
+**Fuente:** Ministerio del Ambiente (MINAM) – DGCIA.
+
 **Proyecto académico | Análisis de datos ambientales | Perú | 2009–2016**
+
